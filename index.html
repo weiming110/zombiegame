@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>週日以外我也要玩!!</title>
+    <title>週日以外也要玩!!</title>
     <style>
         body {
             margin: 0; background-color: #111; color: white;
@@ -139,11 +139,19 @@
         let countdownInterval;
         let spawnTimeoutKey;
 
+        // === 【核心修改：每關嚴格限制武器箱出生次數的計數器】 ===
+        let rifleSpawnCount = 0; // 步槍箱出生次數（上限3）
+        let mgSpawnCount = 0;    // 機槍箱出生次數（上限1）
+        let wallsSpawnedInThisLevel = 0;
+
         function initSquad() {
             squad = [{ isHero: true, weaponLvl: 1, offsetX: 0, offsetY: 45 }];
             squadX = 185;
             levelTimeLeft = 45;
             bossSpawned = false;
+            rifleSpawnCount = 0; // 重置計數器
+            mgSpawnCount = 0;
+            wallsSpawnedInThisLevel = 0;
             renderSquadVisuals();
         }
 
@@ -226,8 +234,6 @@
             }, 1000);
         }
 
-        let wallsSpawnedInThisLevel = 0;
-
         function spawnObstacle() {
             if (!gameActive || bossSpawned) return;
             
@@ -239,47 +245,36 @@
             let difficultyMultiplier = currentLevel;
             let currentWidth = 90;
 
-            // 計算目前遊戲進行了幾秒
             let secondsPassed = 45 - levelTimeLeft;
 
-            // 保底綠色招募牆機制
             if (levelTimeLeft < 25 && wallsSpawnedInThisLevel === 0) {
                 typeRand = 0.55; 
             }
 
+            // === 【核心修改：將武器箱出現率壓低到 4%，且鎖死關卡最高限額】 ===
             if (typeRand < 0.55) {
                 type = 'barrel';
-                // 階梯血量曲線
-                if (secondsPassed <= 10) {
-                    hp = Math.floor(Math.random() * 7) + 3;
-                } else if (secondsPassed <= 25) {
-                    hp = (Math.floor(Math.random() * 25) + 15) * difficultyMultiplier;
-                } else {
-                    let playerPowerBonus = Math.floor(squad.length * 1.2); 
-                    hp = (Math.floor(Math.random() * 50) + 100) * difficultyMultiplier + playerPowerBonus;
-                    hp = Math.min(350, Math.floor(hp)); 
-                }
-                innerHTML = `<div class="label">擊爆增兵</div><div class="hp">+${hp}</div>`;
-                obstacle.className = 'obstacle barrel';
-            } else if (typeRand < 0.62) { // 稀有武器箱 7% 機率
+            } else if (typeRand < 0.59) { // 只有極度窄小的 4% 機率能抽到武器箱
                 if (secondsPassed <= 10) {
                     type = 'barrel';
-                    hp = Math.floor(Math.random() * 7) + 3;
-                    innerHTML = `<div class="label">擊爆增兵</div><div class="hp">+${hp}</div>`;
-                    obstacle.className = 'obstacle barrel';
                 } else if (secondsPassed <= 30) {
-                    type = 'box-rifle'; hp = 4 * difficultyMultiplier;
-                    innerHTML = `<div class="label">全軍步槍</div><div class="hp">⚡ RIFLE</div>`;
-                    obstacle.className = 'obstacle box-rifle';
-                } else {
-                    if (Math.random() < 0.6) {
-                        type = 'box-rifle'; hp = 4 * difficultyMultiplier;
-                        innerHTML = `<div class="label">全軍步槍</div><div class="hp">⚡ RIFLE</div>`;
-                        obstacle.className = 'obstacle box-rifle';
+                    // 11~30秒：只有可能抽到步槍，且檢查是否超過上限 3 次
+                    if (rifleSpawnCount < 3) {
+                        type = 'box-rifle';
+                        rifleSpawnCount++;
                     } else {
-                        type = 'box-mg'; hp = 6 * difficultyMultiplier;
-                        innerHTML = `<div class="label">全軍機槍</div><div class="hp">🔥 MG</div>`;
-                        obstacle.className = 'obstacle box-mg';
+                        type = 'barrel'; // 超過上限直接強行沒收，轉回普通桶子
+                    }
+                } else {
+                    // 30秒後：隨機抽步槍或機槍，且分別進行計數器封印檢查
+                    if (Math.random() < 0.5) {
+                        if (rifleSpawnCount < 3) {
+                            type = 'box-rifle'; rifleSpawnCount++;
+                        } else { type = 'barrel'; }
+                    } else {
+                        if (mgSpawnCount < 1) { // 機關槍整關鎖死只能出現 1 次
+                            type = 'box-mg'; mgSpawnCount++;
+                        } else { type = 'barrel'; }
                     }
                 }
             } else if (typeRand < 0.72) {
@@ -296,6 +291,29 @@
                 obstacle.className = 'obstacle spike';
             }
 
+            // 如果最後決定生成的是普通桶子，套用對應時間軸的階梯血量
+            if (type === 'barrel') {
+                if (secondsPassed <= 10) {
+                    hp = Math.floor(Math.random() * 7) + 3;
+                } else if (secondsPassed <= 25) {
+                    hp = (Math.floor(Math.random() * 25) + 15) * difficultyMultiplier;
+                } else {
+                    let playerPowerBonus = Math.floor(squad.length * 1.2); 
+                    hp = (Math.floor(Math.random() * 50) + 100) * difficultyMultiplier + playerPowerBonus;
+                    hp = Math.min(350, Math.floor(hp)); 
+                }
+                innerHTML = `<div class="label">擊爆增兵</div><div class="hp">+${hp}</div>`;
+                obstacle.className = 'obstacle barrel';
+            } else if (type === 'box-rifle') {
+                hp = 4 * difficultyMultiplier;
+                innerHTML = `<div class="label">全軍步槍</div><div class="hp">⚡ RIFLE</div>`;
+                obstacle.className = 'obstacle box-rifle';
+            } else if (type === 'box-mg') {
+                hp = 6 * difficultyMultiplier;
+                innerHTML = `<div class="label">全軍機槍</div><div class="hp">🔥 MG</div>`;
+                obstacle.className = 'obstacle box-mg';
+            }
+
             let itemX = laneLefts[lane];
             if (type === 'spike') itemX += 22; 
             
@@ -306,17 +324,13 @@
             obstacles.push({ element: obstacle, x: itemX, width: currentWidth, type: type, hp: hp, top: -70 });
             container.appendChild(obstacle);
 
-            // === 【核心修改：前 20 秒密度變低，之後才瘋狂加密】 ===
-            let spawnCooldown = 400; // 預設值
-            
+            // 動態密度
+            let spawnCooldown = 400; 
             if (secondsPassed <= 20) {
-                // 前 20 秒：刷怪間隔很長（大約 1.1 秒 ~ 1.7 秒才掉一塊東西），讓你手槍慢慢點
                 spawnCooldown = Math.random() * 600 + 1100;
             } else if (secondsPassed <= 35) {
-                // 中期 21 ~ 35 秒：稍微加快（500 ~ 900 毫秒）
                 spawnCooldown = Math.random() * 400 + 500;
             } else {
-                // 後期 36 秒之後：地獄狂暴密度（250 ~ 450 毫秒），全面塞滿！
                 spawnCooldown = Math.random() * 200 + 250;
             }
 
@@ -391,7 +405,7 @@
 
             autoShoot();
 
-            // 子彈碰撞判定
+            // 子彈碰撞
             for (let i = bullets.length - 1; i >= 0; i--) {
                 let b = bullets[i];
                 b.top -= 12;
@@ -543,7 +557,7 @@
             if (isWin) {
                 document.getElementById('end-title').innerText = "🏆 戰神降臨！完美通關";
                 document.getElementById('end-title').style.color = "#00e5ff";
-                document.getElementById('end-desc').innerText = "節奏與策略的極致大師！";
+                document.getElementById('end-desc').innerText = "物資控管的極限通關大師！";
             } else {
                 document.getElementById('end-title').innerText = "GAME OVER";
                 document.getElementById('end-title').style.color = "#ff3d00";
