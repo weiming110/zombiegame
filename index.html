@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>週日以外也要玩!!</title>
+    <title>週日以外的殭屍</title>
     <style>
         body {
             margin: 0; background-color: #111; color: white;
@@ -90,10 +90,8 @@
         <div class="lane-line" style="left: 266px;"></div>
         
         <div id="squad-container">
-            <!-- 士兵反半月型生成 -->
-        </div>
+            </div>
 
-        <!-- 關卡結算 -->
         <div id="settlement-screen" class="overlay">
             <h2>🎉 順利通關！</h2>
             <p style="font-size: 18px; color: #aaa;">戰場迷霧散去，部隊存活狀況：</p>
@@ -102,7 +100,6 @@
             <button onclick="nextLevel()">進入下一關</button>
         </div>
 
-        <!-- 遊戲結束 -->
         <div id="game-over-screen" class="overlay">
             <h2 id="end-title">GAME OVER</h2>
             <p id="end-desc">防線徹底崩潰...</p>
@@ -136,12 +133,8 @@
 
         const baseMoveSpeed = 0.9; 
 
-        let countdownInterval;
-        let spawnTimeoutKey;
-
-        // === 【核心修改：每關嚴格限制武器箱出生次數的計數器】 ===
-        let rifleSpawnCount = 0; // 步槍箱出生次數（上限3）
-        let mgSpawnCount = 0;    // 機槍箱出生次數（上限1）
+        let rifleSpawnCount = 0; 
+        let mgSpawnCount = 0;    
         let wallsSpawnedInThisLevel = 0;
 
         function initSquad() {
@@ -149,7 +142,7 @@
             squadX = 185;
             levelTimeLeft = 45;
             bossSpawned = false;
-            rifleSpawnCount = 0; // 重置計數器
+            rifleSpawnCount = 0; 
             mgSpawnCount = 0;
             wallsSpawnedInThisLevel = 0;
             renderSquadVisuals();
@@ -180,7 +173,9 @@
             let xOffsets = squad.slice(0, visualCount).map(s => s.offsetX);
             let minX = Math.min(...xOffsets) - 10;
             let maxX = Math.max(...xOffsets) + 10;
-            squadWidth = Math.min(220, maxX - minX); 
+            
+            // === 【核心修改：縮減部隊寬度上限至 160px，更為緊湊精悍】 ===
+            squadWidth = Math.min(160, maxX - minX); 
             squadContainer.style.width = squadWidth + 'px';
 
             for (let i = 0; i < visualCount; i++) {
@@ -251,39 +246,35 @@
                 typeRand = 0.55; 
             }
 
-            // === 【核心修改：將武器箱出現率壓低到 4%，且鎖死關卡最高限額】 ===
             if (typeRand < 0.55) {
                 type = 'barrel';
-            } else if (typeRand < 0.59) { // 只有極度窄小的 4% 機率能抽到武器箱
+            } else if (typeRand < 0.59) { 
                 if (secondsPassed <= 10) {
                     type = 'barrel';
                 } else if (secondsPassed <= 30) {
-                    // 11~30秒：只有可能抽到步槍，且檢查是否超過上限 3 次
                     if (rifleSpawnCount < 3) {
-                        type = 'box-rifle';
-                        rifleSpawnCount++;
-                    } else {
-                        type = 'barrel'; // 超過上限直接強行沒收，轉回普通桶子
-                    }
+                        type = 'box-rifle'; rifleSpawnCount++;
+                    } else { type = 'barrel'; }
                 } else {
-                    // 30秒後：隨機抽步槍或機槍，且分別進行計數器封印檢查
                     if (Math.random() < 0.5) {
                         if (rifleSpawnCount < 3) {
                             type = 'box-rifle'; rifleSpawnCount++;
                         } else { type = 'barrel'; }
                     } else {
-                        if (mgSpawnCount < 1) { // 機關槍整關鎖死只能出現 1 次
+                        if (mgSpawnCount < 1) { 
                             type = 'box-mg'; mgSpawnCount++;
                         } else { type = 'barrel'; }
                     }
                 }
             } else if (typeRand < 0.72) {
-                type = 'bonus-wall'; hp = 1; 
+                type = 'bonus-wall'; 
+                // === 【核心修改：招募牆增兵速度大幅提升】 ===
+                hp = 10 * difficultyMultiplier; 
                 wallsSpawnedInThisLevel++;
                 innerHTML = `<div class="label">射擊增兵</div><div class="hp">+${hp}</div>`;
                 obstacle.className = 'obstacle bonus-wall';
             } else if (typeRand < 0.88) {
-                type = 'zombie'; hp = (4 * difficultyMultiplier) + Math.floor(squad.length * 0.2);
+                type = 'zombie'; hp = (4 * difficultyMultiplier) + Math.floor(squad.length * 0.1);
                 innerHTML = `<div class="hp" style="margin-top:5px;">🧟</div><div style="font-size:11px">HP:${hp}</div>`;
                 obstacle.className = 'obstacle zombie';
             } else {
@@ -291,16 +282,19 @@
                 obstacle.className = 'obstacle spike';
             }
 
-            // 如果最後決定生成的是普通桶子，套用對應時間軸的階梯血量
+            // === 【核心修改：桶子 HP 平滑漸進式斜率成長演算法】 ===
             if (type === 'barrel') {
                 if (secondsPassed <= 10) {
+                    // 1. 前 10 秒：個位數 (3 ~ 9)
                     hp = Math.floor(Math.random() * 7) + 3;
-                } else if (secondsPassed <= 25) {
-                    hp = (Math.floor(Math.random() * 25) + 15) * difficultyMultiplier;
                 } else {
-                    let playerPowerBonus = Math.floor(squad.length * 1.2); 
-                    hp = (Math.floor(Math.random() * 50) + 100) * difficultyMultiplier + playerPowerBonus;
-                    hp = Math.min(350, Math.floor(hp)); 
+                    // 2. 11 秒之後：平滑曲線公式。血量 = 基礎分 + (經過秒數的平方根比例) * 難度
+                    // 這樣數值會是 15..35..70..130.. 每一秒掉下來的桶子都比前一秒稍微硬一點點
+                    let smoothCurve = Math.pow(secondsPassed - 10, 1.35); 
+                    let playerPowerBonus = Math.floor(squad.length * 0.4); // 動態調輕人數權重，防止數值暴衝
+                    
+                    hp = 10 + Math.floor(smoothCurve * 1.5 * difficultyMultiplier) + playerPowerBonus;
+                    hp = Math.min(220, Math.floor(hp)); // 防爆上限調降至 220 
                 }
                 innerHTML = `<div class="label">擊爆增兵</div><div class="hp">+${hp}</div>`;
                 obstacle.className = 'obstacle barrel';
@@ -346,7 +340,7 @@
             bossEl.className = 'obstacle boss';
             bossEl.style.left = '130px'; bossEl.style.top = '-90px';
             
-            let bossHp = 150 * currentLevel + (squad.length * 3); 
+            let bossHp = 150 * currentLevel + (squad.length * 2); 
             bossEl.innerHTML = `<div class="label" style="font-size:14px; color:#ff5252;">⚠️ BOSS ⚠️</div><div class="hp" id="boss-hp">HP: ${bossHp}</div>`;
             
             container.appendChild(bossEl);
@@ -393,8 +387,11 @@
             renderSquadVisuals();
         }
 
+        // === 【核心修改：打爆桶子後的增兵速度大幅提升】 ===
         function addMinions(count) {
-            for (let i = 0; i < count; i++) {
+            // 原本只加少少幾隻，現在直接大方膨脹，點爆一個桶子能產生巨大的人海回饋
+            let massiveCount = count * 3; 
+            for (let i = 0; i < massiveCount; i++) {
                 squad.push({ isHero: false, weaponLvl: 1, offsetX: 0, offsetY: 0 });
             }
             renderSquadVisuals();
@@ -425,8 +422,10 @@
                     if (hitX && hitY) {
                         obj.hp -= b.dmg;
                         if (obj.hp <= 0) {
-                            if (obj.type === 'barrel') addMinions(Math.floor(Math.random() * 3) + 2); 
-                            else if (obj.type === 'zombie') addMinions(1);
+                            // 擊爆給予大幅增兵
+                            if (obj.type === 'barrel') addMinions(Math.floor(Math.random() * 3) + 4); 
+                            else if (obj.type === 'zombie') addMinions(2);
+                            else if (obj.type === 'bonus-wall') addMinions(obj.hp); // 招募牆直接加總量
                             else if (obj.type === 'box-rifle') tryUpgradeSquad(2); 
                             else if (obj.type === 'box-mg') tryUpgradeSquad(3);    
                             else if (obj.type === 'boss') {
@@ -436,8 +435,8 @@
                             }
                             obj.element.remove(); obstacles.splice(j, 1);
                         } else {
-                            if (obj.type === 'barrel' || obj.type === 'zombie' || obj.type === 'box-rifle' || obj.type === 'box-mg') {
-                                obj.element.querySelector('.hp').innerText = obj.type === 'barrel' ? `+${Math.ceil(obj.hp)}` : `HP:${Math.ceil(obj.hp)}`;
+                            if (obj.type === 'barrel' || obj.type === 'zombie' || obj.type === 'box-rifle' || obj.type === 'box-mg' || obj.type === 'bonus-wall') {
+                                obj.element.querySelector('.hp').innerText = (obj.type === 'barrel' || obj.type === 'bonus-wall') ? `+${Math.ceil(obj.hp)}` : `HP:${Math.ceil(obj.hp)}`;
                             }
                         }
                         b.element.remove(); bullets.splice(i, 1);
@@ -462,8 +461,8 @@
                         let initialCount = squad.length;
                         let damageAmount = 0;
                         if (obj.type === 'barrel') damageAmount = Math.ceil(obj.hp);
-                        if (obj.type === 'zombie') damageAmount = 1;
-                        if (obj.type === 'boss') damageAmount = 4;
+                        if (obj.type === 'zombie') damageAmount = 2;
+                        if (obj.type === 'boss') damageAmount = 5;
 
                         let hitCount = 0;
 
@@ -557,11 +556,11 @@
             if (isWin) {
                 document.getElementById('end-title').innerText = "🏆 戰神降臨！完美通關";
                 document.getElementById('end-title').style.color = "#00e5ff";
-                document.getElementById('end-desc').innerText = "物資控管的極限通關大師！";
+                document.getElementById('end-desc').innerText = "節奏與策略的極致大師！";
             } else {
                 document.getElementById('end-title').innerText = "GAME OVER";
                 document.getElementById('end-title').style.color = "#ff3d00";
-                document.getElementById('end-desc').innerText = "陣型前線被硬生生撕裂了...";
+                document.getElementById('end-desc').innerText = "防線被地獄大軍無情切碎了...";
             }
             document.getElementById('final-army-accumulate').innerText = totalArmyAccumulated + squad.length;
         }
