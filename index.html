@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>禮拜天以外也想玩這個......</title>
+    <title>禮拜天以外也想玩這個!!</title>
     <style>
         body {
             margin: 0; background-color: #111; color: white;
@@ -90,10 +90,8 @@
         <div class="lane-line" style="left: 266px;"></div>
         
         <div id="squad-container">
-            <!-- 士兵反半月型生成 -->
-        </div>
+            </div>
 
-        <!-- 關卡結算 -->
         <div id="settlement-screen" class="overlay">
             <h2>🎉 順利通關！</h2>
             <p style="font-size: 18px; color: #aaa;">戰場迷霧散去，部隊存活狀況：</p>
@@ -102,7 +100,6 @@
             <button onclick="nextLevel()">進入下一關</button>
         </div>
 
-        <!-- 遊戲結束 -->
         <div id="game-over-screen" class="overlay">
             <h2 id="end-title">GAME OVER</h2>
             <p id="end-desc">防線徹底崩潰...</p>
@@ -239,14 +236,17 @@
             let difficultyMultiplier = currentLevel;
             let currentWidth = 90;
 
+            // 計算目前「遊戲進行了幾秒」
+            let secondsPassed = 45 - levelTimeLeft;
+
+            // 保底綠色招募牆機制
             if (levelTimeLeft < 25 && wallsSpawnedInThisLevel === 0) {
                 typeRand = 0.55; 
             }
 
             if (typeRand < 0.35) {
                 type = 'barrel';
-                let secondsPassed = 45 - levelTimeLeft;
-
+                // 階梯血量曲線
                 if (secondsPassed <= 10) {
                     hp = Math.floor(Math.random() * 7) + 3;
                 } else if (secondsPassed <= 25) {
@@ -260,14 +260,29 @@
                 innerHTML = `<div class="label">擊爆增兵</div><div class="hp">+${hp}</div>`;
                 obstacle.className = 'obstacle barrel';
             } else if (typeRand < 0.50) {
-                if (Math.random() < 0.6) {
+                // === 【核心修改：嚴格時間軸武器箱解鎖】 ===
+                if (secondsPassed <= 10) {
+                    // 1. 前 10 秒：絕對不可能拿到任何武器箱，如果隨機抽到，強行轉成普通增兵桶
+                    type = 'barrel';
+                    hp = Math.floor(Math.random() * 7) + 3;
+                    innerHTML = `<div class="label">擊爆增兵</div><div class="hp">+${hp}</div>`;
+                    obstacle.className = 'obstacle barrel';
+                } else if (secondsPassed <= 30) {
+                    // 2. 第 11 ~ 30 秒：只有可能拿到步槍箱！
                     type = 'box-rifle'; hp = 4 * difficultyMultiplier;
                     innerHTML = `<div class="label">全軍步槍</div><div class="hp">⚡ RIFLE</div>`;
                     obstacle.className = 'obstacle box-rifle';
                 } else {
-                    type = 'box-mg'; hp = 6 * difficultyMultiplier;
-                    innerHTML = `<div class="label">全軍機槍</div><div class="hp">🔥 MG</div>`;
-                    obstacle.className = 'obstacle box-mg';
+                    // 3. 第 30 秒之後：機關槍箱正式解鎖，與步槍隨機出現
+                    if (Math.random() < 0.5) {
+                        type = 'box-rifle'; hp = 4 * difficultyMultiplier;
+                        innerHTML = `<div class="label">全軍步槍</div><div class="hp">⚡ RIFLE</div>`;
+                        obstacle.className = 'obstacle box-rifle';
+                    } else {
+                        type = 'box-mg'; hp = 6 * difficultyMultiplier;
+                        innerHTML = `<div class="label">全軍機槍</div><div class="hp">🔥 MG</div>`;
+                        obstacle.className = 'obstacle box-mg';
+                    }
                 }
             } else if (typeRand < 0.65) {
                 type = 'bonus-wall'; hp = 1; 
@@ -364,11 +379,18 @@
 
             autoShoot();
 
-            // 子彈碰撞
+            // 子彈碰撞判定
             for (let i = bullets.length - 1; i >= 0; i--) {
                 let b = bullets[i];
                 b.top -= 12;
                 b.element.style.top = b.top + 'px';
+
+                // === 【核心修改：絕對死線，徹底清除頂端殘留子彈】 ===
+                if (b.top <= 5) {
+                    b.element.remove();
+                    bullets.splice(i, 1);
+                    continue; 
+                }
 
                 for (let j = obstacles.length - 1; j >= 0; j--) {
                     let obj = obstacles[j];
@@ -397,10 +419,6 @@
                         break;
                     }
                 }
-
-                if (b && b.top < 0) {
-                    b.element.remove(); bullets.splice(i, 1);
-                }
             }
 
             // 物件與玩家肉體碰撞
@@ -415,53 +433,41 @@
 
                 if (collideX_General && collideY) {
                     
-                    // === 【核心重構：全物件升級精準區域扣血（包括未打爆的桶子與殭屍）】 ===
                     if (obj.type === 'barrel' || obj.type === 'spike' || obj.type === 'zombie' || obj.type === 'boss') {
                         let initialCount = squad.length;
-                        
-                        // 計算要扣掉多少人
                         let damageAmount = 0;
                         if (obj.type === 'barrel') damageAmount = Math.ceil(obj.hp);
                         if (obj.type === 'zombie') damageAmount = 1;
                         if (obj.type === 'boss') damageAmount = 4;
-                        // 尖刺是特殊全切，不適用固定扣血量
 
                         let hitCount = 0;
 
-                        // 核心過濾器：檢查哪隻兵正好撞上這個物件的橫向寬度
                         squad = squad.filter((soldier, index) => {
                             let visualIndex = index % 12;
                             let targetOffsetX = squad[visualIndex] ? squad[visualIndex].offsetX : soldier.offsetX;
                             let soldierRealX = squadX + (squadWidth / 2) + targetOffsetX;
-                            
-                            // 這隻兵有沒有碰觸到該障礙物的左右橫向範圍
                             let isHit = (soldierRealX >= obj.x && soldierRealX <= obj.x + obj.width);
                             
                             if (isHit) {
-                                // 如果是尖刺，範圍內的小兵一律清除
                                 if (obj.type === 'spike') {
-                                    if (soldier.isHero) return true; // 英雄隊長豁免直接死
+                                    if (soldier.isHero) return true; 
                                     return false; 
-                                } 
-                                // 如果是桶子或殭屍，扣滿該物件剩餘的血量/傷害量之前，範圍內的小兵會被消滅
-                                else {
+                                } else {
                                     if (hitCount < damageAmount) {
-                                        if (soldier.isHero) return true; // 英雄不直接死，留到最後
+                                        if (soldier.isHero) return true; 
                                         hitCount++;
-                                        return false; // 這隻小兵犧牲
+                                        return false; 
                                     }
                                 }
                             }
-                            return true; // 沒被撞到或超額的幸運兒留下來
+                            return true; 
                         });
 
-                        // 溢出傷害機制：如果正面撞擊桶子的那幾隻兵不夠扣桶子的剩餘HP
                         if (obj.type === 'barrel' && hitCount < damageAmount && squad.length > 1) {
                             let leftoverDamage = damageAmount - hitCount;
-                            squad.splice(-leftoverDamage); // 從隊伍最後面（也就是其他防線）抽人來扣
+                            squad.splice(-leftoverDamage); 
                         }
 
-                        // 英雄孤身一人正面撞擊死亡判定
                         if (squad.length === 1 && squad[0].isHero) {
                             let heroRealX = squadX + (squadWidth / 2);
                             if (heroRealX >= obj.x && heroRealX <= obj.x + obj.width) {
@@ -469,9 +475,7 @@
                                 if (obj.type === 'barrel' || obj.type === 'zombie' || obj.type === 'boss') squad = [];
                             }
                         }
-                    } 
-                    // 綠色招募牆與藍色武器箱（正面撞到等同於吃掉，全軍受益）
-                    else {
+                    } else {
                         if (obj.type === 'bonus-wall') {
                             addMinions(obj.hp);
                         } else if (obj.type === 'box-rifle') {
@@ -481,7 +485,6 @@
                         }
                     }
 
-                    // 物件觸摸後消散（Boss 除外）
                     if (obj.type !== 'boss') {
                         obj.element.remove(); obstacles.splice(i, 1);
                     }
