@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>週日以外也要玩</title>
+    <title>週日以外的殭屍/title>
     <style>
         body {
             margin: 0; background-color: #111; color: white;
@@ -19,20 +19,17 @@
         }
         .lane-line { position: absolute; top: 0; bottom: 0; width: 2px; background-color: #2a2a2a; }
         
-        /* 射程提示虛線（道路 2/3 處，約 top: 200px 位置） */
         #range-line {
             position: absolute; top: 200px; left: 0; width: 100%; height: 2px;
             border-top: 2px dashed rgba(255, 61, 0, 0.2); z-index: 1;
         }
 
-        /* 戰隊大本營 */
         #squad-container {
             position: absolute; bottom: 60px;
             left: 185px; width: 30px; height: 70px; 
             z-index: 10; background-color: rgba(255, 61, 0, 0.03); border-radius: 5px;
         }
 
-        /* 士兵樣式 */
         .soldier {
             width: 15px; height: 15px; border-radius: 50%;
             display: flex; justify-content: center; align-items: center;
@@ -42,18 +39,15 @@
         }
         .soldier.hero { width: 22px; height: 22px; font-size: 11px; z-index: 5; }
 
-        /* 士兵武器顏色 */
         .w-1 { background: linear-gradient(145deg, #ffeb3b, #f57f17); border: 1px solid #fff; } 
         .w-2 { background: linear-gradient(145deg, #ff4081, #c2185b); border: 1px solid #fff; color: white; } 
         .w-3 { background: linear-gradient(145deg, #e040fb, #7b1fa2); border: 1px solid #fff; color: white; box-shadow: 0 0 6px #e040fb; } 
 
-        /* 子彈樣式 */
         .bullet { position: absolute; width: 6px; height: 14px; border-radius: 3px; }
         .b-1 { background-color: #ffeb3b; box-shadow: 0 0 5px #ffeb3b; } 
         .b-2 { background-color: #ff4081; box-shadow: 0 0 8px #ff4081; width: 8px; height: 16px; } 
         .b-3 { background-color: #e040fb; box-shadow: 0 0 15px #e040fb; width: 10px; height: 18px; } 
 
-        /* 物件樣式 */
         .obstacle {
             position: absolute; width: 90px; height: 65px;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
@@ -66,10 +60,7 @@
         .barrel { background: linear-gradient(145deg, #ff9800, #e65100); border: 2px solid #ffb74d; }
         .box-rifle { background: linear-gradient(145deg, #ff4081, #ad1457); border: 2px solid #ff80ab; box-shadow: 0 0 10px #ff4081; }
         .box-mg { background: linear-gradient(145deg, #e040fb, #6a1b9a); border: 2px solid #ea80fc; box-shadow: 0 0 15px #e040fb; }
-        
-        /* 藍色牌子招募牆 */
         .bonus-wall { background: linear-gradient(145deg, #0288d1, #01579b); border: 2px solid #4fc3f7; box-shadow: 0 0 10px rgba(2,136,209,0.5); }
-        
         .spike { background: linear-gradient(145deg, #757575, #424242); clip-path: polygon(50% 0%, 0% 100%, 100% 100%); height: 45px; width: 45px !important; }
         .zombie { background: linear-gradient(145deg, #00e676, #004d40); border: 2px solid #a7ffeb; border-radius: 50%; width: 50px; height: 50px; }
         .boss { background: linear-gradient(145deg, #d50000, #4a0000); border: 4px solid #ff5252; border-radius: 15px; width: 140px; height: 80px; box-shadow: 0 0 25px #ff1744; }
@@ -95,16 +86,13 @@
     </div>
     
     <div id="game-container">
-        <!-- 跑道線與射程邊界線 -->
         <div class="lane-line" style="left: 133px;"></div>
         <div class="lane-line" style="left: 266px;"></div>
         <div id="range-line"></div>
         
         <div id="squad-container">
-            <!-- 士兵生成 -->
-        </div>
+            </div>
 
-        <!-- 關卡結算 -->
         <div id="settlement-screen" class="overlay">
             <h2>🎉 順利通關！</h2>
             <p style="font-size: 18px; color: #aaa;">戰場迷霧散去，部隊存活狀況：</p>
@@ -113,7 +101,6 @@
             <button onclick="nextLevel()">進入下一關</button>
         </div>
 
-        <!-- 遊戲結束 -->
         <div id="game-over-screen" class="overlay">
             <h2 id="end-title">GAME OVER</h2>
             <p id="end-desc">防線徹底崩潰...</p>
@@ -188,7 +175,6 @@
             let minX = Math.min(...xOffsets) - 10;
             let maxX = Math.max(...xOffsets) + 10;
             
-            // 緊湊寬度上限 160px
             squadWidth = Math.min(160, maxX - minX); 
             squadContainer.style.width = squadWidth + 'px';
 
@@ -253,7 +239,7 @@
             let type = 'barrel'; let hp = 0; let innerHTML = '';
             let difficultyMultiplier = currentLevel;
             let currentWidth = 90;
-            let rewardCount = 0; // === 【核心新增：用來記錄每個桶子能得到的真實兵力】 ===
+            let rewardCount = 0;
 
             let secondsPassed = 45 - levelTimeLeft;
 
@@ -263,7 +249,7 @@
 
             if (typeRand < 0.55) {
                 type = 'barrel';
-            } else if (typeRand < 0.59) { // 武器箱 4% 機率
+            } else if (typeRand < 0.59) { 
                 if (secondsPassed <= 10) {
                     type = 'barrel';
                 } else if (secondsPassed <= 30) {
@@ -283,7 +269,6 @@
                 }
             } else if (typeRand < 0.72) {
                 type = 'bonus-wall'; 
-                // === 【核心修改：藍色牌子是唯一快速增兵管道】 ===
                 hp = 25 * difficultyMultiplier; 
                 wallsSpawnedInThisLevel++;
                 innerHTML = `<div class="label" style="color:#4fc3f7">招募牆</div><div class="hp">+${hp}</div>`;
@@ -297,7 +282,6 @@
                 obstacle.className = 'obstacle spike';
             }
 
-            // 桶子血量與獎勵文字初始化
             if (type === 'barrel') {
                 if (secondsPassed <= 10) {
                     hp = Math.floor(Math.random() * 7) + 3;
@@ -308,10 +292,9 @@
                     hp = Math.min(220, Math.floor(hp)); 
                 }
                 
-                // === 【核心修改：限制桶子獎勵上限最多為 3，且動態清楚標示！】 ===
                 if (hp <= 15) rewardCount = 1;
                 else if (hp <= 60) rewardCount = 2;
-                else rewardCount = 3; // 超過 60 滴血的鋼鐵硬桶，擊爆最多也就給 3 人
+                else rewardCount = 3; 
 
                 innerHTML = `<div class="label">HP: ${hp}</div><div class="hp" style="color:#ffeb3b; font-size:14px;">擊爆: +${rewardCount}</div>`;
                 obstacle.className = 'obstacle barrel';
@@ -332,11 +315,9 @@
             obstacle.style.top = '-70px';
             obstacle.innerHTML = innerHTML;
             
-            // 存入陣列 (reward: 記錄桶子增兵量)
             obstacles.push({ element: obstacle, x: itemX, width: currentWidth, type: type, hp: hp, top: -70, reward: rewardCount });
             container.appendChild(obstacle);
 
-            // 動態密度
             let spawnCooldown = 400; 
             if (secondsPassed <= 20) {
                 spawnCooldown = Math.random() * 600 + 1100;
@@ -388,13 +369,10 @@
                         bullet.className = `bullet ${bClass}`;
                         bullet.style.left = bulletX + 'px';
                         
-                        // 發射起點坐標
                         let targetOffsetY = squad[visualIndex] ? squad[visualIndex].offsetY : 0;
                         let startTop = 470 + targetOffsetY;
                         bullet.style.top = startTop + 'px';
                         
-                        // === 【核心修改：子彈射程上限鎖死在 2/3 處 (top 200px)】 ===
-                        // 記錄子彈的發射基準，用於算飛行距離
                         container.appendChild(bullet);
                         bullets.push({ element: bullet, x: bulletX, top: startTop, dmg: dmg });
                     }
@@ -409,7 +387,6 @@
             renderSquadVisuals();
         }
 
-        // 精準加兵
         function addMinions(count) {
             for (let i = 0; i < count; i++) {
                 squad.push({ isHero: false, weaponLvl: 1, offsetX: 0, offsetY: 0 });
@@ -422,13 +399,12 @@
 
             autoShoot();
 
-            // 子彈物理更新
+            // 子彈物理
             for (let i = bullets.length - 1; i >= 0; i--) {
                 let b = bullets[i];
-                b.top -= 12; // 子彈向上飛
+                b.top -= 12;
                 b.element.style.top = b.top + 'px';
 
-                // === 【核心修改：子彈飛越 2/3 道路死線 (top <= 200px) 自動湮滅】 ===
                 if (b.top <= 200) {
                     b.element.remove();
                     bullets.splice(i, 1);
@@ -443,10 +419,9 @@
                     if (hitX && hitY) {
                         obj.hp -= b.dmg;
                         if (obj.hp <= 0) {
-                            // 根據規定的確切限額獲得增兵
-                            if (obj.type === 'barrel') addMinions(obj.reward); // 得到寫清楚的 1~3 人
+                            if (obj.type === 'barrel') addMinions(obj.reward); 
                             else if (obj.type === 'zombie') addMinions(1);
-                            else if (obj.type === 'bonus-wall') addMinions(obj.hp); // 牌子才能瘋狂大量加兵
+                            else if (obj.type === 'bonus-wall') addMinions(obj.hp); 
                             else if (obj.type === 'box-rifle') tryUpgradeSquad(2); 
                             else if (obj.type === 'box-mg') tryUpgradeSquad(3);    
                             else if (obj.type === 'boss') {
@@ -457,7 +432,6 @@
                             obj.element.remove(); obstacles.splice(j, 1);
                         } else {
                             if (obj.type === 'barrel' || obj.type === 'zombie' || obj.type === 'box-rifle' || obj.type === 'box-mg' || obj.type === 'bonus-wall') {
-                                // 動態刷新數值文字
                                 if (obj.type === 'barrel') {
                                     obj.element.innerHTML = `<div class="label">HP: ${Math.ceil(obj.hp)}</div><div class="hp" style="color:#ffeb3b; font-size:14px;">擊爆: +${obj.reward}</div>`;
                                 } else {
@@ -471,7 +445,7 @@
                 }
             }
 
-            // 物件肉體碰撞
+            // 物件與玩家肉體區域碰撞
             for (let i = obstacles.length - 1; i >= 0; i--) {
                 let obj = obstacles[i];
                 obj.top += (obj.type === 'boss') ? 0.3 : baseMoveSpeed; 
@@ -486,9 +460,12 @@
                     if (obj.type === 'barrel' || obj.type === 'spike' || obj.type === 'zombie' || obj.type === 'boss') {
                         let initialCount = squad.length;
                         let damageAmount = 0;
-                        if (obj.type === 'barrel') damageAmount = Math.ceil(obj.hp);
-                        if (obj.type === 'zombie') damageAmount = 2;
-                        if (obj.type === 'boss') damageAmount = 5;
+                        
+                        // === 【核心修改：未打爆桶子死死鎖定在定額扣除 5 人！】 ===
+                        if (obj.type === 'barrel') damageAmount = 5; 
+                        
+                        if (obj.type === 'zombie') damageAmount = 1;
+                        if (obj.type === 'boss') damageAmount = 2;
 
                         let hitCount = 0;
 
@@ -499,10 +476,14 @@
                             let isHit = (soldierRealX >= obj.x && soldierRealX <= obj.x + obj.width);
                             
                             if (isHit) {
+                                // 尖刺固定扣 6 人
                                 if (obj.type === 'spike') {
-                                    if (soldier.isHero) return true; 
-                                    return false; 
-                                } else {
+                                    if (soldier.isHero) return true;
+                                    if (hitCount < 6) { hitCount++; return false; }
+                                    return true;
+                                } 
+                                // 桶子、殭屍與 Boss 的定額局部擋刀
+                                else {
                                     if (hitCount < damageAmount) {
                                         if (soldier.isHero) return true; 
                                         hitCount++;
@@ -513,6 +494,7 @@
                             return true; 
                         });
 
+                        // 溢出補扣機制
                         if (obj.type === 'barrel' && hitCount < damageAmount && squad.length > 1) {
                             let leftoverDamage = damageAmount - hitCount;
                             squad.splice(-leftoverDamage); 
@@ -582,11 +564,11 @@
             if (isWin) {
                 document.getElementById('end-title').innerText = "🏆 戰神降臨！完美通關";
                 document.getElementById('end-title').style.color = "#00e5ff";
-                document.getElementById('end-desc').innerText = "節奏與策略的極致大師！";
+                document.getElementById('end-desc').innerText = "物資控管的極限通關大師！";
             } else {
                 document.getElementById('end-title').innerText = "GAME OVER";
                 document.getElementById('end-title').style.color = "#ff3d00";
-                document.getElementById('end-desc').innerText = "防線被地獄大軍無情切碎了...";
+                document.getElementById('end-desc').innerText = "前線陣型被撕裂了，下次小心走位！";
             }
             document.getElementById('final-army-accumulate').innerText = totalArmyAccumulated + squad.length;
         }
