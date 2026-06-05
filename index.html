@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>禮拜天以外也想玩這個!!</title>
+    <title>週日以外也要玩</title>
     <style>
         body {
             margin: 0; background-color: #111; color: white;
@@ -90,8 +90,10 @@
         <div class="lane-line" style="left: 266px;"></div>
         
         <div id="squad-container">
-            </div>
+            <!-- 士兵反半月型生成 -->
+        </div>
 
+        <!-- 關卡結算 -->
         <div id="settlement-screen" class="overlay">
             <h2>🎉 順利通關！</h2>
             <p style="font-size: 18px; color: #aaa;">戰場迷霧散去，部隊存活狀況：</p>
@@ -100,6 +102,7 @@
             <button onclick="nextLevel()">進入下一關</button>
         </div>
 
+        <!-- 遊戲結束 -->
         <div id="game-over-screen" class="overlay">
             <h2 id="end-title">GAME OVER</h2>
             <p id="end-desc">防線徹底崩潰...</p>
@@ -108,7 +111,7 @@
         </div>
     </div>
 
-    <script>
+    <script {nonce}>
         const container = document.getElementById('game-container');
         const squadContainer = document.getElementById('squad-container');
         const levelEl = document.getElementById('current-level');
@@ -236,17 +239,16 @@
             let difficultyMultiplier = currentLevel;
             let currentWidth = 90;
 
-            // 計算目前「遊戲進行了幾秒」
             let secondsPassed = 45 - levelTimeLeft;
 
-            // 保底綠色招募牆機制
             if (levelTimeLeft < 25 && wallsSpawnedInThisLevel === 0) {
                 typeRand = 0.55; 
             }
 
-            if (typeRand < 0.35) {
+            // === 【核心修改：大幅降低升級箱機率 + 提高桶子比例】 ===
+            // 重新分配權重：原本隨機機率容易抽到箱子，現在強制將絕大部分隨機都塞給桶子和尖刺
+            if (typeRand < 0.55) {
                 type = 'barrel';
-                // 階梯血量曲線
                 if (secondsPassed <= 10) {
                     hp = Math.floor(Math.random() * 7) + 3;
                 } else if (secondsPassed <= 25) {
@@ -256,25 +258,21 @@
                     hp = (Math.floor(Math.random() * 50) + 100) * difficultyMultiplier + playerPowerBonus;
                     hp = Math.min(350, Math.floor(hp)); 
                 }
-
                 innerHTML = `<div class="label">擊爆增兵</div><div class="hp">+${hp}</div>`;
                 obstacle.className = 'obstacle barrel';
-            } else if (typeRand < 0.50) {
-                // === 【核心修改：嚴格時間軸武器箱解鎖】 ===
+            } else if (typeRand < 0.62) { // 縮窄到只剩 7% 機率抽到武器箱
                 if (secondsPassed <= 10) {
-                    // 1. 前 10 秒：絕對不可能拿到任何武器箱，如果隨機抽到，強行轉成普通增兵桶
                     type = 'barrel';
                     hp = Math.floor(Math.random() * 7) + 3;
                     innerHTML = `<div class="label">擊爆增兵</div><div class="hp">+${hp}</div>`;
                     obstacle.className = 'obstacle barrel';
                 } else if (secondsPassed <= 30) {
-                    // 2. 第 11 ~ 30 秒：只有可能拿到步槍箱！
                     type = 'box-rifle'; hp = 4 * difficultyMultiplier;
                     innerHTML = `<div class="label">全軍步槍</div><div class="hp">⚡ RIFLE</div>`;
                     obstacle.className = 'obstacle box-rifle';
                 } else {
-                    // 3. 第 30 秒之後：機關槍箱正式解鎖，與步槍隨機出現
-                    if (Math.random() < 0.5) {
+                    // 30秒後即使抽到箱子，也是步槍機槍各半，等於機關槍機率被壓到極低！
+                    if (Math.random() < 0.6) {
                         type = 'box-rifle'; hp = 4 * difficultyMultiplier;
                         innerHTML = `<div class="label">全軍步槍</div><div class="hp">⚡ RIFLE</div>`;
                         obstacle.className = 'obstacle box-rifle';
@@ -284,12 +282,12 @@
                         obstacle.className = 'obstacle box-mg';
                     }
                 }
-            } else if (typeRand < 0.65) {
+            } else if (typeRand < 0.72) {
                 type = 'bonus-wall'; hp = 1; 
                 wallsSpawnedInThisLevel++;
                 innerHTML = `<div class="label">射擊增兵</div><div class="hp">+${hp}</div>`;
                 obstacle.className = 'obstacle bonus-wall';
-            } else if (typeRand < 0.85) {
+            } else if (typeRand < 0.88) {
                 type = 'zombie'; hp = (4 * difficultyMultiplier) + Math.floor(squad.length * 0.2);
                 innerHTML = `<div class="hp" style="margin-top:5px;">🧟</div><div style="font-size:11px">HP:${hp}</div>`;
                 obstacle.className = 'obstacle zombie';
@@ -308,7 +306,9 @@
             obstacles.push({ element: obstacle, x: itemX, width: currentWidth, type: type, hp: hp, top: -70 });
             container.appendChild(obstacle);
 
-            spawnTimeoutKey = setTimeout(spawnObstacle, Math.random() * 400 + 400);
+            // === 【核心修改：生怪冷卻推向極致，形成高密度桶子海】 ===
+            // 從 400~800ms 壓縮到 250~500ms，畫面上會極度密集
+            spawnTimeoutKey = setTimeout(spawnObstacle, Math.random() * 250 + 250);
         }
 
         function spawnBoss() {
@@ -336,8 +336,12 @@
                     let shouldShoot = false; let bClass = 'b-1'; let dmg = 1;
 
                     if (soldier.weaponLvl === 1 && shootTimer % 64 === 0) { shouldShoot = true; bClass = 'b-1'; dmg = 1; }
-                    if (soldier.weaponLvl === 2 && shootTimer % 16 === 0) { shouldShoot = true; bClass = 'b-2'; dmg = 2; }
-                    if (soldier.weaponLvl === 3) { shouldShoot = true; bClass = 'b-3'; dmg = 1; }
+                    
+                    // === 【核心修改：步槍與機關槍數值全面減弱】 ===
+                    // 步槍：冷卻從 16 砍慢到 20 影格，威力從 2 降為 1.5
+                    if (soldier.weaponLvl === 2 && shootTimer % 20 === 0) { shouldShoot = true; bClass = 'b-2'; dmg = 1.5; }
+                    // 機關槍：射速微調，單發傷害從 1 大砍至 0.7
+                    if (soldier.weaponLvl === 3 && shootTimer % 4 === 0) { shouldShoot = true; bClass = 'b-3'; dmg = 0.7; }
 
                     if (soldier.isHero) dmg += 1;
 
@@ -385,7 +389,6 @@
                 b.top -= 12;
                 b.element.style.top = b.top + 'px';
 
-                // === 【核心修改：絕對死線，徹底清除頂端殘留子彈】 ===
                 if (b.top <= 5) {
                     b.element.remove();
                     bullets.splice(i, 1);
