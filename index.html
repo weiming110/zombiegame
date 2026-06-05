@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>週日以外的殭屍/title>
+    <title>週日以外的殭屍</title>
     <style>
         body {
             margin: 0; background-color: #111; color: white;
@@ -24,10 +24,12 @@
             border-top: 2px dashed rgba(255, 61, 0, 0.2); z-index: 1;
         }
 
+        /* 戰隊大本營：底色半透明，會隨哪邊死人而即時缺角縮小 */
         #squad-container {
             position: absolute; bottom: 60px;
             left: 185px; width: 30px; height: 70px; 
-            z-index: 10; background-color: rgba(255, 61, 0, 0.03); border-radius: 5px;
+            z-index: 10; background-color: rgba(0, 229, 255, 0.08); border-radius: 5px;
+            transition: all 0.05s ease-out;
         }
 
         .soldier {
@@ -35,7 +37,7 @@
             display: flex; justify-content: center; align-items: center;
             font-size: 8px; font-weight: bold; color: black;
             box-shadow: 0 2px 4px rgba(0,0,0,0.4); position: absolute;
-            transition: all 0.1s ease-out; 
+            transition: top 0.1s ease-out, background 0.2s; /* 取消 left 的 transition 避免滑動時殘影，讓定點清除更果斷 */
         }
         .soldier.hero { width: 22px; height: 22px; font-size: 11px; z-index: 5; }
 
@@ -138,8 +140,14 @@
         let mgSpawnCount = 0;    
         let wallsSpawnedInThisLevel = 0;
 
+        // === 【核心改版1：新兵入伍時，分配一個「唯一且永久固定」的位置 ID】 ===
+        // 我們用一個唯一的 ID 計數器，讓新兵的位置死死固定住
+        let soldierIdCounter = 0;
+
         function initSquad() {
-            squad = [{ isHero: true, weaponLvl: 1, offsetX: 0, offsetY: 45 }];
+            soldierIdCounter = 0;
+            // 英雄隊長 ID 為 0，位置永遠固定在最中央
+            squad = [{ id: soldierIdCounter++, isHero: true, weaponLvl: 1, offsetX: 0, offsetY: 45 }];
             squadX = 185;
             levelTimeLeft = 45;
             bossSpawned = false;
@@ -149,34 +157,23 @@
             renderSquadVisuals();
         }
 
-        // 鋒矢陣排列
+        // === 【核心改版2：廢除動態重排！只渲染目前還活著的定點小兵】 ===
         function renderSquadVisuals() {
             squadContainer.innerHTML = ''; 
-            const horizontalSpacing = 16; 
+            
+            if (squad.length === 0) return;
 
-            let visualCount = Math.min(12, squad.length);
-
-            for (let index = 0; index < visualCount; index++) {
-                let soldier = squad[index];
-                if (!soldier) continue;
-
-                if (soldier.isHero) {
-                    soldier.offsetX = 0;
-                    soldier.offsetY = 45; 
-                } else {
-                    let side = (index % 2 === 1) ? -1 : 1;
-                    let multiplier = Math.ceil(index / 2);
-                    soldier.offsetX = side * multiplier * horizontalSpacing;
-                    soldier.offsetY = 45 - (Math.pow(multiplier, 1.4) * 5); 
-                }
-            }
-
-            let xOffsets = squad.slice(0, visualCount).map(s => s.offsetX);
+            // 1. 動態計算目前存活士兵的最小與最大 X 偏移，用來即時調整 Hitbox 邊界
+            let xOffsets = squad.map(s => s.offsetX);
             let minX = Math.min(...xOffsets) - 10;
             let maxX = Math.max(...xOffsets) + 10;
             
+            // 限制部隊最寬上限 160px。如果單側死光，squadWidth 會立刻縮水！
             squadWidth = Math.min(160, maxX - minX); 
             squadContainer.style.width = squadWidth + 'px';
+
+            // 為了不讓畫面太擠，畫面上最多依舊只渲染前 12 隻活著的定點小兵
+            let visualCount = Math.min(12, squad.length);
 
             for (let i = 0; i < visualCount; i++) {
                 let soldier = squad[i];
@@ -188,8 +185,10 @@
                     el.innerText = soldier.weaponLvl === 1 ? '🔫' : (soldier.weaponLvl === 2 ? '⚔️' : '🔥');
                 }
                 
+                // 讓每個小兵完美的對準部隊容器的中心加上他「出生就定死」的偏量
                 let leftPos = (squadWidth / 2) + soldier.offsetX - (soldier.isHero ? 11 : 8);
                 let topPos = soldier.offsetY; 
+                
                 el.style.left = leftPos + 'px';
                 el.style.top = topPos + 'px';
                 squadContainer.appendChild(el);
@@ -361,16 +360,12 @@
                     if (soldier.isHero) dmg += 1;
 
                     if (shouldShoot) {
-                        let visualIndex = index % 12;
-                        let targetOffsetX = squad[visualIndex] ? squad[visualIndex].offsetX : 0;
-                        let bulletX = squadX + (squadWidth / 2) + targetOffsetX - 3;
-
+                        let bulletX = squadX + (squadWidth / 2) + soldier.offsetX - 3;
                         const bullet = document.createElement('div');
                         bullet.className = `bullet ${bClass}`;
                         bullet.style.left = bulletX + 'px';
                         
-                        let targetOffsetY = squad[visualIndex] ? squad[visualIndex].offsetY : 0;
-                        let startTop = 470 + targetOffsetY;
+                        let startTop = 470 + soldier.offsetY;
                         bullet.style.top = startTop + 'px';
                         
                         container.appendChild(bullet);
@@ -387,11 +382,22 @@
             renderSquadVisuals();
         }
 
+        // === 【核心修改3：新兵入伍時，死死分配到一個固定坐標，永不挪動】 ===
         function addMinions(count) {
+            const horizontalSpacing = 16; 
+
             for (let i = 0; i < count; i++) {
-                squad.push({ isHero: false, weaponLvl: 1, offsetX: 0, offsetY: 0 });
+                let currentId = soldierIdCounter++;
+                
+                // 算法一樣是左一個右一個，但因為 ID 一旦發放就固定，他的坐標就永遠不變了！
+                let side = (currentId % 2 === 1) ? -1 : 1;
+                let multiplier = Math.ceil(currentId / 2);
+                let ox = side * multiplier * horizontalSpacing;
+                let oy = 45 - (Math.pow(multiplier, 1.4) * 5);
+
+                squad.push({ id: currentId, isHero: false, weaponLvl: 1, offsetX: ox, offsetY: oy });
             }
-            renderSquadVisuals();
+            renderSquadVisuals(); 
         }
 
         function updateGame() {
@@ -461,50 +467,49 @@
                         let initialCount = squad.length;
                         let damageAmount = 0;
                         
-                        // === 【核心修改：未打爆桶子死死鎖定在定額扣除 5 人！】 ===
-                        if (obj.type === 'barrel') damageAmount = 5; 
-                        
+                        // 套用精確的動態百分比傷害公式
+                        if (obj.type === 'barrel') {
+                            if (initialCount >= 100) {
+                                damageAmount = Math.max(1, Math.floor(initialCount * 0.07));
+                            } else {
+                                damageAmount = Math.max(1, Math.floor(initialCount * 0.10));
+                            }
+                        }
+                        if (obj.type === 'spike') damageAmount = Math.max(1, Math.floor(initialCount * 0.12)); 
                         if (obj.type === 'zombie') damageAmount = 1;
                         if (obj.type === 'boss') damageAmount = 2;
 
-                        let hitCount = 0;
+                        let killedInThisCollision = 0;
 
-                        squad = squad.filter((soldier, index) => {
-                            let visualIndex = index % 12;
-                            let targetOffsetX = squad[visualIndex] ? squad[visualIndex].offsetX : soldier.offsetX;
-                            let soldierRealX = squadX + (squadWidth / 2) + targetOffsetX;
-                            let isHit = (soldierRealX >= obj.x && soldierRealX <= obj.x + obj.width);
+                        // === 【核心修改4：真正實現「哪邊撞到，就從哪邊定點蒸發清除」】 ===
+                        squad = squad.filter((soldier) => {
+                            // 計算每隻兵目前的絕對網頁真實 X 位置
+                            let soldierRealX = squadX + (squadWidth / 2) + soldier.offsetX;
                             
-                            if (isHit) {
-                                // 尖刺固定扣 6 人
-                                if (obj.type === 'spike') {
-                                    if (soldier.isHero) return true;
-                                    if (hitCount < 6) { hitCount++; return false; }
-                                    return true;
-                                } 
-                                // 桶子、殭屍與 Boss 的定額局部擋刀
-                                else {
-                                    if (hitCount < damageAmount) {
-                                        if (soldier.isHero) return true; 
-                                        hitCount++;
-                                        return false; 
-                                    }
+                            // 檢查這個定點小兵有沒有正好撞到這個物件
+                            let isHitByObject = (soldierRealX >= obj.x && soldierRealX <= obj.x + obj.width);
+                            
+                            if (isHitByObject) {
+                                if (killedInThisCollision < damageAmount) {
+                                    if (soldier.isHero) return true; // 英雄享有最高免死金牌
+                                    killedInThisCollision++;
+                                    return false; // 【核心清除】：左邊撞到，就只有左邊這隻兵在陣列裡死掉，右邊的人絕對不遞補！
                                 }
                             }
                             return true; 
                         });
 
-                        // 溢出補扣機制
-                        if (obj.type === 'barrel' && hitCount < damageAmount && squad.length > 1) {
-                            let leftoverDamage = damageAmount - hitCount;
+                        // 補扣機制（防止極端死角）
+                        if (killedInThisCollision < damageAmount && squad.length > 1) {
+                            let leftoverDamage = damageAmount - killedInThisCollision;
                             squad.splice(-leftoverDamage); 
                         }
 
+                        // 英雄陣亡
                         if (squad.length === 1 && squad[0].isHero) {
                             let heroRealX = squadX + (squadWidth / 2);
                             if (heroRealX >= obj.x && heroRealX <= obj.x + obj.width) {
-                                if (obj.type === 'spike' && initialCount === 1) squad = [];
-                                if (obj.type === 'barrel' || obj.type === 'zombie' || obj.type === 'boss') squad = [];
+                                squad = []; 
                             }
                         }
                     } else {
@@ -521,6 +526,7 @@
                         obj.element.remove(); obstacles.splice(i, 1);
                     }
 
+                    // 扣完血立刻重新渲染！因為沒有了重新分配公式，活著的人會繼續死死釘在原地，隊伍會完美的殘缺一塊！
                     renderSquadVisuals();
 
                     if (squad.length === 0 || (squad.length === 1 && squad[0].isHero === false)) { 
