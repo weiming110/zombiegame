@@ -24,20 +24,21 @@
             border-top: 2px dashed rgba(0, 229, 255, 0.2); z-index: 1;
         }
 
+        /* 戰隊大本營：高度固定展現縱深，寬度由 JS 即時精密計算 */
         #squad-container {
             position: absolute; bottom: 60px;
-            left: 185px; width: 30px; height: 70px; 
+            left: 185px; width: 30px; height: 75px; 
             z-index: 10; background-color: rgba(0, 229, 255, 0.08); border-radius: 5px;
         }
 
         .soldier {
-            width: 15px; height: 15px; border-radius: 50%;
+            width: 14px; height: 14px; border-radius: 50%;
             display: flex; justify-content: center; align-items: center;
             font-size: 8px; font-weight: bold; color: black;
             box-shadow: 0 2px 4px rgba(0,0,0,0.4); position: absolute;
-            transition: top 0.1s ease-out; 
+            transition: all 0.05s ease-out;
         }
-        .soldier.hero { width: 22px; height: 22px; font-size: 11px; z-index: 5; }
+        .soldier.hero { width: 20px; height: 20px; font-size: 10px; z-index: 5; }
 
         .w-1 { background: linear-gradient(145deg, #ffeb3b, #f57f17); border: 1px solid #fff; } 
         .w-2 { background: linear-gradient(145deg, #ff4081, #c2185b); border: 1px solid #fff; color: white; } 
@@ -60,10 +61,7 @@
         .barrel { background: linear-gradient(145deg, #ff9800, #e65100); border: 2px solid #ffb74d; }
         .box-rifle { background: linear-gradient(145deg, #ff4081, #ad1457); border: 2px solid #ff80ab; box-shadow: 0 0 10px #ff4081; }
         .box-mg { background: linear-gradient(145deg, #e040fb, #6a1b9a); border: 2px solid #ea80fc; box-shadow: 0 0 15px #e040fb; }
-        
-        /* 藍色牌子充能招募牆 */
         .bonus-wall { background: linear-gradient(145deg, #0288d1, #01579b); border: 2px solid #00e5ff; box-shadow: 0 0 15px rgba(0,229,255,0.6); }
-        
         .spike { background: linear-gradient(145deg, #757575, #424242); clip-path: polygon(50% 0%, 0% 100%, 100% 100%); height: 45px; width: 45px !important; }
         .zombie { background: linear-gradient(145deg, #00e676, #004d40); border: 2px solid #a7ffeb; border-radius: 50%; width: 50px; height: 50px; }
         .boss { background: linear-gradient(145deg, #d50000, #4a0000); border: 4px solid #ff5252; border-radius: 15px; width: 140px; height: 80px; box-shadow: 0 0 25px #ff1744; }
@@ -94,8 +92,10 @@
         <div id="range-line"></div>
         
         <div id="squad-container">
-            </div>
+            <!-- 士兵生成 -->
+        </div>
 
+        <!-- 關卡結算 -->
         <div id="settlement-screen" class="overlay">
             <h2>🎉 順利通關！</h2>
             <p style="font-size: 18px; color: #aaa;">戰場迷霧散去，部隊存活狀況：</p>
@@ -104,6 +104,7 @@
             <button onclick="nextLevel()">進入下一關</button>
         </div>
 
+        <!-- 遊戲結束 -->
         <div id="game-over-screen" class="overlay">
             <h2>GAME OVER</h2>
             <p id="end-desc">防線徹底崩潰...</p>
@@ -149,7 +150,8 @@
 
         function initSquad() {
             soldierIdCounter = 0;
-            squad = [{ id: soldierIdCounter++, isHero: true, weaponLvl: 1, offsetX: 0, offsetY: 45 }];
+            // 英雄初始在最後方壓陣 (row: 4 即第5排，置中 offset: 0)
+            squad = [{ id: soldierIdCounter++, isHero: true, weaponLvl: 1, offsetX: 0, offsetY: 55, row: 4, col: 0 }];
             squadX = 185;
             levelTimeLeft = 45;
             bossSpawned = false;
@@ -164,20 +166,23 @@
             renderSquadVisuals();
         }
 
-        // 鋒矢陣排列與精準定點切除
+        // === 【核心重構：嚴格限制 2/3道路寬與10%長度的 5排格點陣型演算法】 ===
         function renderSquadVisuals() {
             squadContainer.innerHTML = ''; 
             
             if (squad.length === 0) return;
 
+            // 1. 即時計算目前存活士兵的網格邊界
             let xOffsets = squad.map(s => s.offsetX);
             let minX = Math.min(...xOffsets) - 10;
             let maxX = Math.max(...xOffsets) + 10;
             
-            squadWidth = Math.min(160, maxX - minX); 
+            // 【寬度死鎖】：最大絕對不能超過 200px (即2個跑道 266px 的 0.75倍)
+            squadWidth = Math.min(200, maxX - minX); 
             squadContainer.style.width = squadWidth + 'px';
 
-            let visualCount = Math.min(12, squad.length);
+            // 限制畫面上渲染上限（前 15 隻活著的定點士兵），其餘重疊充能
+            let visualCount = Math.min(15, squad.length);
 
             for (let i = 0; i < visualCount; i++) {
                 let soldier = squad[i];
@@ -189,7 +194,8 @@
                     el.innerText = soldier.weaponLvl === 1 ? '🔫' : (soldier.weaponLvl === 2 ? '⚔️' : '🔥');
                 }
                 
-                let leftPos = (squadWidth / 2) + soldier.offsetX - (soldier.isHero ? 11 : 8);
+                // 完美的對準部隊容器的中心加上「出生就被限額死鎖」的固定網格座標
+                let leftPos = (squadWidth / 2) + soldier.offsetX - (soldier.isHero ? 10 : 7);
                 let topPos = soldier.offsetY; 
                 el.style.left = leftPos + 'px';
                 el.style.top = topPos + 'px';
@@ -288,7 +294,6 @@
                 obstacle.className = 'obstacle spike';
             }
 
-            // 數值與標籤外觀
             if (type === 'barrel') {
                 if (secondsPassed <= 10) {
                     hp = Math.floor(Math.random() * 7) + 3;
@@ -305,7 +310,6 @@
                 innerHTML = `<div class="label">HP: ${hp}</div><div class="hp" style="color:#ffeb3b; font-size:14px;">擊爆: +${rewardCount}</div>`;
                 obstacle.className = 'obstacle barrel';
             } else if (type === 'bonus-wall') {
-                // === 【修改：藍色牌子初始值改為基礎 5 人，它不可被打爆，而是子彈打中會一直瘋狂累加！】 ===
                 hp = 5 * difficultyMultiplier; 
                 innerHTML = `<div class="label" style="color:#4fc3f7">充能招募牆</div><div class="hp" style="color:#00e5ff; font-size:22px;">+${hp}</div>`;
                 obstacle.className = 'obstacle bonus-wall';
@@ -362,7 +366,7 @@
             
             shootTimer++;
             if (shootTimer % 4 === 0) {
-                squad.forEach((soldier, index) => {
+                squad.forEach((soldier) => {
                     let shouldShoot = false; let bClass = 'b-1'; let dmg = 1;
 
                     if (soldier.weaponLvl === 1 && shootTimer % 64 === 0) { shouldShoot = true; bClass = 'b-1'; dmg = 1; }
@@ -394,17 +398,58 @@
             renderSquadVisuals();
         }
 
+        // === 【核心修改：倒三角形格點限額算法，死鎖 5排、200px寬、60px長】 ===
         function addMinions(count) {
-            const horizontalSpacing = 16; 
+            // 每排的高度間距 (60px長度限制 / 5排 = 12px 垂直間距)
+            const rowSpacing = 12; 
+            // 橫向小兵間距
+            const colSpacing = 16; 
 
             for (let i = 0; i < count; i++) {
                 let currentId = soldierIdCounter++;
-                let side = (currentId % 2 === 1) ? -1 : 1;
-                let multiplier = Math.ceil(currentId / 2);
-                let ox = side * multiplier * horizontalSpacing;
-                let oy = 45 - (Math.pow(multiplier, 1.4) * 5);
 
-                squad.push({ id: currentId, isHero: false, weaponLvl: 1, offsetX: ox, offsetY: oy });
+                // 根據 ID 計算他應該站在 5 排網格中的哪一排 (0~4，0代表最前排，4代表最後壓陣排)
+                // 為了形成精緻的倒三角形（鋒矢陣），我們限定每排的可容納人數：
+                // 第一排最多 1人，第二排 3人，第三排 5人，第四排 7人，第五排 9人
+                let assignedRow = 4;
+                let assignedCol = 0;
+
+                // 依序由後排往前排、由內往外填滿這 5 排
+                if (currentId === 0) {
+                    assignedRow = 4; assignedCol = 0; // 英雄
+                } else {
+                    // 根據網格規律配置
+                    let tempId = currentId;
+                    if (tempId <= 1) { assignedRow = 0; assignedCol = 0; } // 第 1 排(最前鋒)
+                    else if (tempId <= 3) { assignedRow = 1; assignedCol = (tempId % 2 === 0 ? -1 : 1); } // 第 2 排
+                    else if (tempId <= 6) { assignedRow = 2; assignedCol = (tempId % 3) - 1; } // 第 3 排
+                    else if (tempId <= 10) { assignedRow = 3; assignedCol = (tempId % 4) - 2; } // 第 4 排
+                    else { 
+                        assignedRow = 4; 
+                        // 第 5 排壓陣，限制橫向最大擺放，防止爆出 200px 寬度上限
+                        let colIndex = (tempId % 6) - 3;
+                        assignedCol = colIndex === 0 ? (Math.random() < 0.5 ? -1 : 1) : colIndex;
+                    }
+                }
+
+                // 計算精準死鎖座標
+                let ox = assignedCol * colSpacing;
+                // 【長度死鎖】：Y座標從 5 爬升到 55，最大剛好 50px-60px，完美卡在 10% 道路長度內！
+                let oy = assignedRow * rowSpacing + 5; 
+
+                // 橫向安全限制鎖死在 200px 的 0.75倍寬內
+                if (ox > 90) ox = 90;
+                if (ox < -90) ox = -90;
+
+                squad.push({ 
+                    id: currentId, 
+                    isHero: false, 
+                    weaponLvl: 1, 
+                    offsetX: ox, 
+                    offsetY: oy,
+                    row: assignedRow,
+                    col: assignedCol
+                });
             }
             renderSquadVisuals(); 
         }
@@ -414,7 +459,7 @@
 
             autoShoot();
 
-            // 子彈碰撞
+            // 子彈物理
             for (let i = bullets.length - 1; i >= 0; i--) {
                 let b = bullets[i];
                 b.top -= 12;
@@ -432,13 +477,10 @@
                     let hitY = (b.top >= obj.top && b.top <= obj.top + 65);
 
                     if (hitX && hitY) {
-                        // === 【核心修改：如果是藍色招募牆，被子彈打中反而會狂加數字！】 ===
                         if (obj.type === 'bonus-wall') {
-                            // 牆壁上的增兵總額一直瘋狂累加子彈傷害！
                             obj.hp += b.dmg; 
                             obj.element.innerHTML = `<div class="label" style="color:#4fc3f7">充能招募牆</div><div class="hp" style="color:#00e5ff; font-size:22px;">+${Math.floor(obj.hp)}</div>`;
                         } else {
-                            // 普通障礙物依然扣血打爆
                             obj.hp -= b.dmg;
                             if (obj.hp <= 0) {
                                 if (obj.type === 'barrel') addMinions(obj.reward); 
@@ -492,6 +534,7 @@
 
                         let killedInThisCollision = 0;
 
+                        // 定點清除判定：精準移除撞擊側網格上的小兵
                         squad = squad.filter((soldier) => {
                             let soldierRealX = squadX + (squadWidth / 2) + soldier.offsetX;
                             let isHitByObject = (soldierRealX >= obj.x && soldierRealX <= obj.x + obj.width);
@@ -518,9 +561,8 @@
                             }
                         }
                     } else {
-                        // === 【核心修改：肉身撞到充能牆，一口氣把上面累加出來的巨大數字通通加入兵力！】 ===
                         if (obj.type === 'bonus-wall') {
-                            addMinions(Math.floor(obj.hp)); // 累積了多少就大方直接加多少！
+                            addMinions(Math.floor(obj.hp)); 
                         } else if (obj.type === 'box-rifle') {
                             tryUpgradeSquad(2);
                         } else if (obj.type === 'box-mg') {
