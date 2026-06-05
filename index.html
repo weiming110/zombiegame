@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>禮拜天以外也想玩這個......</title>
+    <style>
+        body {
+            margin: 0; background-color: #111; color: white;
+            font-family: 'Arial', sans-serif;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            height: 100vh; overflow: hidden; position: fixed; width: 100%;
+        }
+        #game-container {
+            position: relative; width: 400px; height: 600px;
+            background-color: #222; border: 4px solid #ff3d00; border-radius: 10px;
+            overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+            cursor: none; 
+        }
+        .lane-line { position: absolute; top: 0; bottom: 0; width: 2px; background-color: #2a2a2a; }
+        
+        /* 戰隊大本營 */
+        #squad-container {
+            position: absolute; bottom: 60px;
+            left: 185px; width: 30px; height: 70px; 
+            z-index: 10; background-color: rgba(255, 61, 0, 0.03); border-radius: 5px;
+        }
+
+        /* 士兵樣式 */
+        .soldier {
+            width: 15px; height: 15px; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 8px; font-weight: bold; color: black;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.4); position: absolute;
+            transition: all 0.1s ease-out; 
+        }
+        .soldier.hero { width: 22px; height: 22px; font-size: 11px; z-index: 5; }
+
+        /* 士兵武器顏色 */
+        .w-1 { background: linear-gradient(145deg, #ffeb3b, #f57f17); border: 1px solid #fff; } 
+        .w-2 { background: linear-gradient(145deg, #ff4081, #c2185b); border: 1px solid #fff; color: white; } 
+        .w-3 { background: linear-gradient(145deg, #e040fb, #7b1fa2); border: 1px solid #fff; color: white; box-shadow: 0 0 6px #e040fb; } 
+
+        /* 子彈樣式 */
+        .bullet { position: absolute; width: 6px; height: 14px; border-radius: 3px; }
+        .b-1 { background-color: #ffeb3b; box-shadow: 0 0 5px #ffeb3b; } 
+        .b-2 { background-color: #ff4081; box-shadow: 0 0 8px #ff4081; width: 8px; height: 16px; } 
+        .b-3 { background-color: #e040fb; box-shadow: 0 0 12px #e040fb; width: 9px; height: 16px; } 
+
+        /* 物件樣式 */
+        .obstacle {
+            position: absolute; width: 90px; height: 65px;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            font-weight: bold; border-radius: 8px; color: white;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3); text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+        }
+        .obstacle .label { font-size: 11px; opacity: 0.9; }
+        .obstacle .hp { font-size: 18px; font-weight: 900; }
+
+        .barrel { background: linear-gradient(145deg, #ff9800, #e65100); border: 2px solid #ffb74d; }
+        .box-rifle { background: linear-gradient(145deg, #ff4081, #ad1457); border: 2px solid #ff80ab; box-shadow: 0 0 10px #ff4081; }
+        .box-mg { background: linear-gradient(145deg, #e040fb, #6a1b9a); border: 2px solid #ea80fc; box-shadow: 0 0 15px #e040fb; }
+        .bonus-wall { background: linear-gradient(145deg, #4caf50, #1b5e20); border: 2px solid #81c784; }
+        .spike { background: linear-gradient(145deg, #757575, #424242); clip-path: polygon(50% 0%, 0% 100%, 100% 100%); height: 45px; width: 45px !important; }
+        .zombie { background: linear-gradient(145deg, #00e676, #004d40); border: 2px solid #a7ffeb; border-radius: 50%; width: 50px; height: 50px; }
+        .boss { background: linear-gradient(145deg, #d50000, #4a0000); border: 4px solid #ff5252; border-radius: 15px; width: 140px; height: 80px; box-shadow: 0 0 25px #ff1744; }
+
+        #ui { display: flex; justify-content: center; width: 400px; margin-bottom: 10px; font-size: 20px; font-weight: bold; color: #ff3d00; }
+        .overlay {
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 100; flex-direction: column; justify-content: center; align-items: center; text-align: center;
+        }
+        .overlay h2 { color: #ff3d00; font-size: 32px; margin-bottom: 15px; }
+        .highlight { color: #ffeb3b; font-weight: bold; font-size: 26px; }
+        button {
+            padding: 12px 30px; font-size: 18px; font-weight: bold; background: #ff3d00; color: white; border: none;
+            border-radius: 5px; cursor: pointer; margin-top: 20px; box-shadow: 0 4px 15px rgba(255, 61, 0, 0.4);
+        }
+        button:hover { transform: scale(1.05); }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <div>LEVEL: <span id="current-level">1/3</span></div>
+    </div>
+    
+    <div id="game-container">
+        <div class="lane-line" style="left: 133px;"></div>
+        <div class="lane-line" style="left: 266px;"></div>
+        
+        <div id="squad-container">
+            <!-- 士兵反半月型生成 -->
+        </div>
+
+        <!-- 關卡結算 -->
+        <div id="settlement-screen" class="overlay">
+            <h2>🎉 順利通關！</h2>
+            <p style="font-size: 18px; color: #aaa;">戰場迷霧散去，部隊存活狀況：</p>
+            <p>① 本關剩餘總兵力：<span id="level-survive" class="highlight">0</span> 人</p>
+            <p>② 歷代累計總招募：<span id="total-accumulate" class="highlight">0</span> 人</p>
+            <button onclick="nextLevel()">進入下一關</button>
+        </div>
+
+        <!-- 遊戲結束 -->
+        <div id="game-over-screen" class="overlay">
+            <h2 id="end-title">GAME OVER</h2>
+            <p id="end-desc">防線徹底崩潰...</p>
+            <p>歷史總計招募人數: <span id="final-army-accumulate" class="highlight">0</span> 人</p>
+            <button onclick="restartWholeGame()">重頭挑戰</button>
+        </div>
+    </div>
+
+    <script>
+        const container = document.getElementById('game-container');
+        const squadContainer = document.getElementById('squad-container');
+        const levelEl = document.getElementById('current-level');
+        const settlementScreen = document.getElementById('settlement-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+
+        const laneLefts = [21, 154, 287]; 
+        
+        let currentLevel = 1;
+        let levelTimeLeft = 45; 
+        let gameActive = true;
+        let bossSpawned = false;
+        let totalArmyAccumulated = 0;
+
+        let squad = []; 
+        let obstacles = [];
+        let bullets = [];
+        let shootTimer = 0;
+        
+        let squadX = 185; 
+        let squadWidth = 30; 
+
+        const baseMoveSpeed = 0.9; 
+
+        let countdownInterval;
+        let spawnTimeoutKey;
+
+        function initSquad() {
+            squad = [{ isHero: true, weaponLvl: 1, offsetX: 0, offsetY: 45 }];
+            squadX = 185;
+            levelTimeLeft = 45;
+            bossSpawned = false;
+            renderSquadVisuals();
+        }
+
+        // 鋒矢陣排列
+        function renderSquadVisuals() {
+            squadContainer.innerHTML = ''; 
+            const horizontalSpacing = 16; 
+
+            let visualCount = Math.min(12, squad.length);
+
+            for (let index = 0; index < visualCount; index++) {
+                let soldier = squad[index];
+                if (!soldier) continue;
+
+                if (soldier.isHero) {
+                    soldier.offsetX = 0;
+                    soldier.offsetY = 45; 
+                } else {
+                    let side = (index % 2 === 1) ? -1 : 1;
+                    let multiplier = Math.ceil(index / 2);
+                    soldier.offsetX = side * multiplier * horizontalSpacing;
+                    soldier.offsetY = 45 - (Math.pow(multiplier, 1.4) * 5); 
+                }
+            }
+
+            let xOffsets = squad.slice(0, visualCount).map(s => s.offsetX);
+            let minX = Math.min(...xOffsets) - 10;
+            let maxX = Math.max(...xOffsets) + 10;
+            squadWidth = Math.min(220, maxX - minX); 
+            squadContainer.style.width = squadWidth + 'px';
+
+            for (let i = 0; i < visualCount; i++) {
+                let soldier = squad[i];
+                const el = document.createElement('div');
+                el.className = `soldier w-${soldier.weaponLvl}`;
+                if (soldier.isHero) {
+                    el.classList.add('hero'); el.innerText = '👑';
+                } else {
+                    el.innerText = soldier.weaponLvl === 1 ? '🔫' : (soldier.weaponLvl === 2 ? '⚔️' : '🔥');
+                }
+                
+                let leftPos = (squadWidth / 2) + soldier.offsetX - (soldier.isHero ? 11 : 8);
+                let topPos = soldier.offsetY; 
+                el.style.left = leftPos + 'px';
+                el.style.top = topPos + 'px';
+                squadContainer.appendChild(el);
+            }
+            keepSquadInBounds();
+        }
+
+        // 滑鼠與觸控
+        container.addEventListener('mousemove', (e) => {
+            if (!gameActive) return;
+            const rect = container.getBoundingClientRect();
+            squadX = (e.clientX - rect.left) - (squadWidth / 2);
+            keepSquadInBounds();
+        });
+
+        container.addEventListener('touchmove', (e) => {
+            if (!gameActive) return;
+            const rect = container.getBoundingClientRect();
+            squadX = (e.touches[0].clientX - rect.left) - (squadWidth / 2);
+            keepSquadInBounds();
+            e.preventDefault(); 
+        }, { passive: false });
+
+        function keepSquadInBounds() {
+            if (squadX < 0) squadX = 0;
+            if (squadX > 400 - squadWidth) squadX = 400 - squadWidth;
+            squadContainer.style.left = squadX + 'px';
+        }
+
+        function startTimer() {
+            countdownInterval = setInterval(() => {
+                if (!gameActive) return;
+                levelTimeLeft--;
+                if (levelTimeLeft <= 0) {
+                    clearInterval(countdownInterval); spawnBoss(); 
+                }
+            }, 1000);
+        }
+
+        let wallsSpawnedInThisLevel = 0;
+
+        function spawnObstacle() {
+            if (!gameActive || bossSpawned) return;
+            
+            const obstacle = document.createElement('div');
+            const lane = Math.floor(Math.random() * 3);
+            let typeRand = Math.random();
+            
+            let type = 'barrel'; let hp = 0; let innerHTML = '';
+            let difficultyMultiplier = currentLevel;
+            let currentWidth = 90;
+
+            if (levelTimeLeft < 25 && wallsSpawnedInThisLevel === 0) {
+                typeRand = 0.55; 
+            }
+
+            if (typeRand < 0.35) {
+                type = 'barrel';
+                let secondsPassed = 45 - levelTimeLeft;
+
+                if (secondsPassed <= 10) {
+                    hp = Math.floor(Math.random() * 7) + 3;
+                } else if (secondsPassed <= 25) {
+                    hp = (Math.floor(Math.random() * 25) + 15) * difficultyMultiplier;
+                } else {
+                    let playerPowerBonus = Math.floor(squad.length * 1.2); 
+                    hp = (Math.floor(Math.random() * 50) + 100) * difficultyMultiplier + playerPowerBonus;
+                    hp = Math.min(350, Math.floor(hp)); 
+                }
+
+                innerHTML = `<div class="label">擊爆增兵</div><div class="hp">+${hp}</div>`;
+                obstacle.className = 'obstacle barrel';
+            } else if (typeRand < 0.50) {
+                if (Math.random() < 0.6) {
+                    type = 'box-rifle'; hp = 4 * difficultyMultiplier;
+                    innerHTML = `<div class="label">全軍步槍</div><div class="hp">⚡ RIFLE</div>`;
+                    obstacle.className = 'obstacle box-rifle';
+                } else {
+                    type = 'box-mg'; hp = 6 * difficultyMultiplier;
+                    innerHTML = `<div class="label">全軍機槍</div><div class="hp">🔥 MG</div>`;
+                    obstacle.className = 'obstacle box-mg';
+                }
+            } else if (typeRand < 0.65) {
+                type = 'bonus-wall'; hp = 1; 
+                wallsSpawnedInThisLevel++;
+                innerHTML = `<div class="label">射擊增兵</div><div class="hp">+${hp}</div>`;
+                obstacle.className = 'obstacle bonus-wall';
+            } else if (typeRand < 0.85) {
+                type = 'zombie'; hp = (4 * difficultyMultiplier) + Math.floor(squad.length * 0.2);
+                innerHTML = `<div class="hp" style="margin-top:5px;">🧟</div><div style="font-size:11px">HP:${hp}</div>`;
+                obstacle.className = 'obstacle zombie';
+            } else {
+                type = 'spike'; hp = 999; currentWidth = 45; innerHTML = ``;
+                obstacle.className = 'obstacle spike';
+            }
+
+            let itemX = laneLefts[lane];
+            if (type === 'spike') itemX += 22; 
+            
+            obstacle.style.left = itemX + 'px';
+            obstacle.style.top = '-70px';
+            obstacle.innerHTML = innerHTML;
+            
+            obstacles.push({ element: obstacle, x: itemX, width: currentWidth, type: type, hp: hp, top: -70 });
+            container.appendChild(obstacle);
+
+            spawnTimeoutKey = setTimeout(spawnObstacle, Math.random() * 400 + 400);
+        }
+
+        function spawnBoss() {
+            bossSpawned = true;
+            obstacles.forEach(obj => obj.element.remove());
+            obstacles = [];
+
+            const bossEl = document.createElement('div');
+            bossEl.className = 'obstacle boss';
+            bossEl.style.left = '130px'; bossEl.style.top = '-90px';
+            
+            let bossHp = 150 * currentLevel + (squad.length * 3); 
+            bossEl.innerHTML = `<div class="label" style="font-size:14px; color:#ff5252;">⚠️ BOSS ⚠️</div><div class="hp" id="boss-hp">HP: ${bossHp}</div>`;
+            
+            container.appendChild(bossEl);
+            obstacles.push({ element: bossEl, x: 130, width: 140, type: 'boss', hp: bossHp, top: -90 });
+        }
+
+        function autoShoot() {
+            if (!gameActive) return;
+            
+            shootTimer++;
+            if (shootTimer % 4 === 0) {
+                squad.forEach((soldier, index) => {
+                    let shouldShoot = false; let bClass = 'b-1'; let dmg = 1;
+
+                    if (soldier.weaponLvl === 1 && shootTimer % 64 === 0) { shouldShoot = true; bClass = 'b-1'; dmg = 1; }
+                    if (soldier.weaponLvl === 2 && shootTimer % 16 === 0) { shouldShoot = true; bClass = 'b-2'; dmg = 2; }
+                    if (soldier.weaponLvl === 3) { shouldShoot = true; bClass = 'b-3'; dmg = 1; }
+
+                    if (soldier.isHero) dmg += 1;
+
+                    if (shouldShoot) {
+                        let visualIndex = index % 12;
+                        let targetOffsetX = squad[visualIndex] ? squad[visualIndex].offsetX : 0;
+                        let bulletX = squadX + (squadWidth / 2) + targetOffsetX - 3;
+
+                        const bullet = document.createElement('div');
+                        bullet.className = `bullet ${bClass}`;
+                        bullet.style.left = bulletX + 'px';
+                        
+                        let targetOffsetY = squad[visualIndex] ? squad[visualIndex].offsetY : 0;
+                        bullet.style.top = (470 + targetOffsetY) + 'px';
+                        
+                        container.appendChild(bullet);
+                        bullets.push({ element: bullet, x: bulletX, top: (470 + targetOffsetY), dmg: dmg });
+                    }
+                });
+            }
+        }
+
+        function tryUpgradeSquad(targetWeaponLevel) {
+            squad.forEach(soldier => {
+                if (soldier.weaponLvl < targetWeaponLevel) soldier.weaponLvl = targetWeaponLevel;
+            });
+            renderSquadVisuals();
+        }
+
+        function addMinions(count) {
+            for (let i = 0; i < count; i++) {
+                squad.push({ isHero: false, weaponLvl: 1, offsetX: 0, offsetY: 0 });
+            }
+            renderSquadVisuals();
+        }
+
+        function updateGame() {
+            if (!gameActive) return;
+
+            autoShoot();
+
+            // 子彈碰撞
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                let b = bullets[i];
+                b.top -= 12;
+                b.element.style.top = b.top + 'px';
+
+                for (let j = obstacles.length - 1; j >= 0; j--) {
+                    let obj = obstacles[j];
+                    let hitX = (b.x >= obj.x && b.x <= obj.x + obj.width);
+                    let hitY = (b.top >= obj.top && b.top <= obj.top + 65);
+
+                    if (hitX && hitY) {
+                        obj.hp -= b.dmg;
+                        if (obj.hp <= 0) {
+                            if (obj.type === 'barrel') addMinions(Math.floor(Math.random() * 3) + 2); 
+                            else if (obj.type === 'zombie') addMinions(1);
+                            else if (obj.type === 'box-rifle') tryUpgradeSquad(2); 
+                            else if (obj.type === 'box-mg') tryUpgradeSquad(3);    
+                            else if (obj.type === 'boss') {
+                                obj.element.remove(); obstacles.splice(j, 1);
+                                triggerSettlement(); b.element.remove(); bullets.splice(i, 1);
+                                return;
+                            }
+                            obj.element.remove(); obstacles.splice(j, 1);
+                        } else {
+                            if (obj.type === 'barrel' || obj.type === 'zombie' || obj.type === 'box-rifle' || obj.type === 'box-mg') {
+                                obj.element.querySelector('.hp').innerText = obj.type === 'barrel' ? `+${Math.ceil(obj.hp)}` : `HP:${Math.ceil(obj.hp)}`;
+                            }
+                        }
+                        b.element.remove(); bullets.splice(i, 1);
+                        break;
+                    }
+                }
+
+                if (b && b.top < 0) {
+                    b.element.remove(); bullets.splice(i, 1);
+                }
+            }
+
+            // 物件與玩家肉體碰撞
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                let obj = obstacles[i];
+                obj.top += (obj.type === 'boss') ? 0.3 : baseMoveSpeed; 
+                obj.element.style.top = obj.top + 'px';
+
+                let collideY = (obj.top > 440 && obj.top < 540);
+                if (obj.type === 'boss' && obj.top > 420 && obj.top < 540) collideY = true;
+                let collideX_General = (squadX < obj.x + obj.width && squadX + squadWidth > obj.x);
+
+                if (collideX_General && collideY) {
+                    
+                    // === 【核心重構：全物件升級精準區域扣血（包括未打爆的桶子與殭屍）】 ===
+                    if (obj.type === 'barrel' || obj.type === 'spike' || obj.type === 'zombie' || obj.type === 'boss') {
+                        let initialCount = squad.length;
+                        
+                        // 計算要扣掉多少人
+                        let damageAmount = 0;
+                        if (obj.type === 'barrel') damageAmount = Math.ceil(obj.hp);
+                        if (obj.type === 'zombie') damageAmount = 1;
+                        if (obj.type === 'boss') damageAmount = 4;
+                        // 尖刺是特殊全切，不適用固定扣血量
+
+                        let hitCount = 0;
+
+                        // 核心過濾器：檢查哪隻兵正好撞上這個物件的橫向寬度
+                        squad = squad.filter((soldier, index) => {
+                            let visualIndex = index % 12;
+                            let targetOffsetX = squad[visualIndex] ? squad[visualIndex].offsetX : soldier.offsetX;
+                            let soldierRealX = squadX + (squadWidth / 2) + targetOffsetX;
+                            
+                            // 這隻兵有沒有碰觸到該障礙物的左右橫向範圍
+                            let isHit = (soldierRealX >= obj.x && soldierRealX <= obj.x + obj.width);
+                            
+                            if (isHit) {
+                                // 如果是尖刺，範圍內的小兵一律清除
+                                if (obj.type === 'spike') {
+                                    if (soldier.isHero) return true; // 英雄隊長豁免直接死
+                                    return false; 
+                                } 
+                                // 如果是桶子或殭屍，扣滿該物件剩餘的血量/傷害量之前，範圍內的小兵會被消滅
+                                else {
+                                    if (hitCount < damageAmount) {
+                                        if (soldier.isHero) return true; // 英雄不直接死，留到最後
+                                        hitCount++;
+                                        return false; // 這隻小兵犧牲
+                                    }
+                                }
+                            }
+                            return true; // 沒被撞到或超額的幸運兒留下來
+                        });
+
+                        // 溢出傷害機制：如果正面撞擊桶子的那幾隻兵不夠扣桶子的剩餘HP
+                        if (obj.type === 'barrel' && hitCount < damageAmount && squad.length > 1) {
+                            let leftoverDamage = damageAmount - hitCount;
+                            squad.splice(-leftoverDamage); // 從隊伍最後面（也就是其他防線）抽人來扣
+                        }
+
+                        // 英雄孤身一人正面撞擊死亡判定
+                        if (squad.length === 1 && squad[0].isHero) {
+                            let heroRealX = squadX + (squadWidth / 2);
+                            if (heroRealX >= obj.x && heroRealX <= obj.x + obj.width) {
+                                if (obj.type === 'spike' && initialCount === 1) squad = [];
+                                if (obj.type === 'barrel' || obj.type === 'zombie' || obj.type === 'boss') squad = [];
+                            }
+                        }
+                    } 
+                    // 綠色招募牆與藍色武器箱（正面撞到等同於吃掉，全軍受益）
+                    else {
+                        if (obj.type === 'bonus-wall') {
+                            addMinions(obj.hp);
+                        } else if (obj.type === 'box-rifle') {
+                            tryUpgradeSquad(2);
+                        } else if (obj.type === 'box-mg') {
+                            tryUpgradeSquad(3);
+                        }
+                    }
+
+                    // 物件觸摸後消散（Boss 除外）
+                    if (obj.type !== 'boss') {
+                        obj.element.remove(); obstacles.splice(i, 1);
+                    }
+
+                    renderSquadVisuals();
+
+                    if (squad.length === 0 || (squad.length === 1 && squad[0].isHero === false)) { 
+                        endGame(false); return; 
+                    }
+                    continue;
+                }
+
+                if (obj.top > 600) {
+                    if (obj.type === 'boss') { endGame(false); return; }
+                    obj.element.remove(); obstacles.splice(i, 1);
+                }
+            }
+
+            if (gameActive) requestAnimationFrame(updateGame);
+        }
+
+        function triggerSettlement() {
+            gameActive = false;
+            clearInterval(countdownInterval); clearTimeout(spawnTimeoutKey);
+            totalArmyAccumulated += squad.length;
+            document.getElementById('level-survive').innerText = squad.length;
+            document.getElementById('total-accumulate').innerText = totalArmyAccumulated;
+            settlementScreen.style.display = 'flex';
+        }
+
+        function nextLevel() {
+            currentLevel++; wallsSpawnedInThisLevel = 0;
+            settlementScreen.style.display = 'none';
+            initSquad(); 
+            bullets.forEach(b => b.element.remove()); bullets = [];
+            levelEl.innerText = `${currentLevel}/3`;
+            gameActive = true;
+            startTimer(); spawnObstacle(); updateGame();
+        }
+
+        function endGame(isWin) {
+            gameActive = false;
+            clearInterval(countdownInterval); clearTimeout(spawnTimeoutKey);
+            gameOverScreen.style.display = 'flex';
+            if (isWin) {
+                document.getElementById('end-title').innerText = "🏆 戰神降臨！完美通關";
+                document.getElementById('end-title').style.color = "#00e5ff";
+                document.getElementById('end-desc').innerText = "節奏與策略的極致大師！";
+            } else {
+                document.getElementById('end-title').innerText = "GAME OVER";
+                document.getElementById('end-title').style.color = "#ff3d00";
+                document.getElementById('end-desc').innerText = "陣型前線被硬生生撕裂了...";
+            }
+            document.getElementById('final-army-accumulate').innerText = totalArmyAccumulated + squad.length;
+        }
+
+        function restartWholeGame() {
+            obstacles.forEach(obj => obj.element.remove());
+            bullets.forEach(b => b.element.remove());
+            obstacles = []; bullets = [];
+            currentLevel = 1; totalArmyAccumulated = 0; wallsSpawnedInThisLevel = 0;
+            gameActive = true;
+            levelEl.innerText = "1/3";
+            settlementScreen.style.display = 'none'; gameOverScreen.style.display = 'none';
+            initSquad(); startTimer(); spawnObstacle(); updateGame();
+        }
+
+        initSquad(); startTimer(); spawnObstacle(); updateGame();
+    </script>
+</body>
+</html>
